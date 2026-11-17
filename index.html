@@ -242,8 +242,8 @@
   <!-- TRENDING NEW RELEASES -->
   <section>
     <div class="section-header new-releases">
-      <h2>✨ Trending New Releases</h2>
-      <span class="status-note">Click any card for plot summary & age rating</span>
+      <h2>✨ Live Trending New Releases (TMDB)</h2>
+      <span class="status-note" id="newReleasesStatus">Fetching live trending...</span>
     </div>
     <div class="releases-grid" id="newReleasesGrid"></div>
   </section>
@@ -316,69 +316,59 @@
 <script>
   // Your live TMDB v3 API key
   const TMDB_API_KEY = "06e2d709858ebfc42c6f723b16ba62df";
+  let liveNewReleasesCache = [];
 
-  // --- 1. NEW RELEASES ---
-  const newReleasesData = [
-    { 
-      title: "The Body (Season 1)", platform: "Netflix", date: "Nov 2026", rating: "TV-MA", genre: "Thriller / Mystery", score: "8.4",
-      summary: "A tense Catholic school thriller centering around teen hysteria, dark secrets, and a shocking finale that leaves everyone questioning reality."
-    },
-    { 
-      title: "Black Doves (Season 2)", platform: "Netflix", date: "Nov 2026", rating: "TV-MA", genre: "Spy Thriller", score: "8.3",
-      summary: "With her handler under threat from an internal coup, spy-for-hire Helen reunites with hitman Sam for a high-stakes mission across London."
-    },
-    { 
-      title: "The Rings of Power (Season 3)", platform: "Prime Video", date: "Nov 2026", rating: "TV-14", genre: "Sci-Fi & Fantasy", score: "8.1",
-      summary: "As Sauron's influence spreads across Middle-earth, fragile alliances are tested and ancient kingdoms prepare for war."
-    },
-    { 
-      title: "Blade Runner 2099", platform: "Prime Video", date: "Nov 2026", rating: "TV-MA", genre: "Sci-Fi / Cyberpunk", score: "8.6",
-      summary: "Set fifty years after Blade Runner 2049, a replicant nearing the end of her life teams up with a detective to uncover a conspiracy in Los Angeles."
-    },
-    { 
-      title: "12 12 12", platform: "Apple TV+", date: "Nov 2026", rating: "TV-MA", genre: "Heist Thriller", score: "8.2",
-      summary: "An underground bank robbery in Zurich unfolds across three timelines: the 12 months before the heist, the 12 hours of the job, and the 12 days after."
-    },
-    { 
-      title: "Percy Jackson (Season 3)", platform: "Disney+", date: "Nov 2026", rating: "TV-PG", genre: "Action & Adventure", score: "8.2",
-      summary: "Percy and his friends embark on a perilous new mythic quest across the country to rescue Annabeth and the goddess Artemis."
-    },
-    { 
-      title: "Yellowjackets (Season 4)", platform: "Paramount+", date: "Nov 2026", rating: "TV-MA", genre: "Drama / Survival", score: "8.5",
-      summary: "The harrowing survival tale reaches its final chapter, bridging the brutal wilderness rescue with the haunting consequences in the present."
-    },
-    { 
-      title: "Being Heumann", platform: "Apple TV+", date: "Nov 2026", rating: "TV-14", genre: "Biography / Drama", score: "8.0",
-      summary: "Follows disability rights activist Judy Heumann and the historic 28-day 1977 San Francisco federal building sit-in."
-    }
-  ];
-
-  function renderNewReleases() {
+  // --- 1. LIVE NEW RELEASES FROM TMDB ---
+  async function loadLiveNewReleases() {
     const grid = document.getElementById("newReleasesGrid");
-    if (!grid) return; 
+    const statusNote = document.getElementById("newReleasesStatus");
+    if (!grid) return;
 
-    grid.innerHTML = newReleasesData.map((item, idx) => `
-      <div class="release-card" onclick="openModal(${idx})">
-        <div>
-          <div class="release-top">
-            <span class="release-title">${item.title}</span>
-            <span class="new-tag">${item.rating}</span>
-          </div>
-          <div style="font-size: 0.82rem; color: var(--text-muted);">${item.genre}</div>
-        </div>
-        <div class="release-meta">
-          <span>📺 ${item.platform} • ${item.date}</span>
-          <span style="color: var(--accent); font-weight: 600;">★ ${item.score}</span>
-        </div>
-      </div>
-    `).join("");
+    try {
+      const res = await fetch(`https://api.themoviedb.org/3/trending/tv/week?api_key=${TMDB_API_KEY}`);
+      const data = await res.json();
+
+      if (data.results && data.results.length > 0) {
+        // Grab the top 8 trending shows live
+        liveNewReleasesCache = data.results.slice(0, 8);
+        statusNote.textContent = "Live from TMDB";
+
+        grid.innerHTML = liveNewReleasesCache.map((item, idx) => {
+          const title = item.name || item.original_name || "Unknown Title";
+          const date = item.first_air_date ? item.first_air_date.split("-")[0] : "N/A";
+          const score = item.vote_average ? item.vote_average.toFixed(1) : "N/A";
+          const overview = item.overview ? item.overview.replace(/'/g, "&#39;") : "No summary available.";
+
+          return `
+            <div class="release-card" onclick="openModal(${idx})">
+              <div>
+                <div class="release-top">
+                  <span class="release-title">${title}</span>
+                  <span class="new-tag">TV</span>
+                </div>
+                <div style="font-size: 0.82rem; color: var(--text-muted);">Trending Global Hit</div>
+              </div>
+              <div class="release-meta">
+                <span>📺 Released: ${date}</span>
+                <span style="color: var(--accent); font-weight: 600;">★ ${score}</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+      } else {
+        statusNote.textContent = "Could not load trending releases";
+      }
+    } catch (err) {
+      statusNote.textContent = "Connection error";
+    }
   }
 
   function openModal(idx) {
-    const item = newReleasesData[idx];
-    document.getElementById("modalTitle").textContent = item.title;
-    document.getElementById("modalMeta").textContent = `${item.platform} | Age Rating: ${item.rating} | ${item.genre} | Score: ★ ${item.score}`;
-    document.getElementById("modalSummary").textContent = item.summary;
+    const item = liveNewReleasesCache[idx];
+    if (!item) return;
+    document.getElementById("modalTitle").textContent = item.name || item.original_name;
+    document.getElementById("modalMeta").textContent = `First Aired: ${item.first_air_date || 'N/A'} | Popularity: ${Math.round(item.popularity || 0)} | Score: ★ ${item.vote_average ? item.vote_average.toFixed(1) : 'N/A'}`;
+    document.getElementById("modalSummary").textContent = item.overview || "No summary available.";
     document.getElementById("releaseModal").style.display = "flex";
   }
 
@@ -590,7 +580,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    renderNewReleases();
+    loadLiveNewReleases();
     loadTop50();
     checkAllSites();
   });
