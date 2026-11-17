@@ -219,6 +219,33 @@
       background: rgba(56, 189, 248, 0.15); color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.3);
       padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
     }
+	/* --- MOBILE RESPONSIVENESS FIXES --- */
+    @media (max-width: 600px) {
+      body {
+        padding: 1rem 0.5rem; /* Less padding on phone edges */
+      }
+      
+      h1 {
+        font-size: 1.35rem; /* Smaller header so it doesn't wrap awkwardly */
+      }
+
+      .lookup-input-group {
+        flex-direction: column; /* Stack search input and button vertically */
+      }
+
+      .btn-primary {
+        width: 100%; /* Make search button full-width for easy tapping */
+      }
+
+      .section-header {
+        padding: 1rem;
+      }
+
+      th, td {
+        padding: 0.7rem 0.75rem; /* Compact table cells for small screens */
+        font-size: 0.85rem;
+      }
+    }
   </style>
 </head>
 <body>
