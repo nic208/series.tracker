@@ -248,11 +248,11 @@
     <div class="releases-grid" id="newReleasesGrid"></div>
   </section>
 
-  <!-- TOP 50 BY GENRE -->
+  <!-- TOP TRENDING SERIES BY GENRE -->
   <section>
     <div class="section-header">
-      <h2><span class="live-dot"></span> Top 50 Trending Series (<span id="currentGenreLabel">All Genres</span>)</h2>
-      <span id="syncStatus" class="status-note">Loading chart...</span>
+      <h2><span class="live-dot"></span> Live Trending Series (<span id="currentGenreLabel">All Genres</span>)</h2>
+      <span id="syncStatus" class="status-note">Loading live chart...</span>
     </div>
     <div class="genre-bar">
       <button class="genre-btn active" onclick="switchGenre('all', this)">🔥 All Genres</button>
@@ -269,8 +269,8 @@
             <th>Rank</th>
             <th>Series</th>
             <th>First Aired</th>
-            <th>Renewal Status</th>
-            <th>Est. Release / Return</th>
+            <th>Status</th>
+            <th>Popularity Score</th>
             <th>Rating</th>
           </tr>
         </thead>
@@ -314,7 +314,6 @@
 </div>
 
 <script>
-  // Your live TMDB v3 API key
   const TMDB_API_KEY = "06e2d709858ebfc42c6f723b16ba62df";
   let liveNewReleasesCache = [];
 
@@ -329,7 +328,6 @@
       const data = await res.json();
 
       if (data.results && data.results.length > 0) {
-        // Grab the top 8 trending shows live
         liveNewReleasesCache = data.results.slice(0, 8);
         statusNote.textContent = "Live from TMDB";
 
@@ -337,7 +335,6 @@
           const title = item.name || item.original_name || "Unknown Title";
           const date = item.first_air_date ? item.first_air_date.split("-")[0] : "N/A";
           const score = item.vote_average ? item.vote_average.toFixed(1) : "N/A";
-          const overview = item.overview ? item.overview.replace(/'/g, "&#39;") : "No summary available.";
 
           return `
             <div class="release-card" onclick="openModal(${idx})">
@@ -356,7 +353,7 @@
           `;
         }).join("");
       } else {
-        statusNote.textContent = "Could not load trending releases";
+        statusNote.textContent = "Could not load trending";
       }
     } catch (err) {
       statusNote.textContent = "Connection error";
@@ -409,72 +406,36 @@
     }
   }
 
-  // --- 3. FULL SHOW LIST ---
+  // --- 3. LIVE TRENDING TOP CHART & GENRES ---
   const genreMap = { all: null, drama: 18, scifi: 10765, action: 10759, comedy: 35, crime: 80 };
   let currentGenre = 'all';
 
-  const fallbackTop50 = [
-    { name: "Big Mistakes", date: "2025", status: "Renewed", est: "2027", score: "8.2", genreId: 18 },
-    { name: "Adults", date: "2025", status: "Renewed", est: "2027", score: "7.9", genreId: 35 },
-    { name: "Sterling Point", date: "2026", status: "Renewed", est: "2027", score: "8.0", genreId: 18 },
-    { name: "Overcompensating", date: "2025", status: "Renewed", est: "Feb 2027", score: "8.1", genreId: 35 },
-    { name: "Off Campus", date: "2026", status: "Renewed", est: "April 2027", score: "8.0", genreId: 18 },
-    { name: "Heated Rivalry", date: "2025", status: "Renewed", est: "May 2027", score: "8.7", genreId: 18 },
-    { name: "Twisted Metal", date: "2023", status: "Renewed", est: "July 2027", score: "7.7", genreId: 10759 },
-    { name: "The Body", date: "2026", status: "Pending", est: "TBD 2027", score: "8.5", genreId: 80 },
-    { name: "Not Suitable for Work", date: "2025", status: "Cancelled", est: "Cancelled", score: "7.2", genreId: 18 },
-    { name: "Black Doves (Season 2)", date: "2024", status: "Renewed", est: "Out Now", score: "8.3", genreId: 80 },
-    { name: "From (Season 4)", date: "2022", status: "Renewed", est: "Late 2026", score: "8.4", genreId: 10765 },
-    { name: "The Diplomat (Season 4)", date: "2023", status: "Renewed", est: "Early 2027", score: "8.7", genreId: 18 },
-    { name: "Nobody Wants This (Season 3)", date: "2024", status: "Renewed", est: "Renewed for S4", score: "8.1", genreId: 35 },
-    { name: "The Rings of Power (Season 3)", date: "2022", status: "Renewed", est: "Out Now", score: "8.1", genreId: 10765 },
-    { name: "Blade Runner 2099", date: "2026", status: "Pending", est: "TBD 2027", score: "8.6", genreId: 10765 },
-    { name: "Percy Jackson (Season 3)", date: "2023", status: "Renewed", est: "Out Now", score: "8.2", genreId: 10759 },
-    { name: "Yellowjackets (Season 4)", date: "2021", status: "Final Season", est: "Out Now", score: "8.5", genreId: 18 },
-    { name: "Beef (Season 2)", date: "2023", status: "Renewed", est: "Out Now", score: "8.5", genreId: 35 },
-    { name: "Spider-Noir", date: "2026", status: "Pending", est: "TBD 2027", score: "8.2", genreId: 10759 },
-    { name: "Star City", date: "2026", status: "Pending", est: "TBD 2027", score: "8.4", genreId: 10765 },
-    { name: "Lord of the Flies", date: "2026", status: "Limited Series", est: "Complete", score: "8.3", genreId: 18 },
-    { name: "12 12 12", date: "2026", status: "Pending", est: "TBD 2027", score: "8.2", genreId: 80 },
-    { name: "MobLand (Season 2)", date: "2025", status: "Renewed", est: "Late 2026", score: "8.9", genreId: 80 },
-    { name: "Dexter: Resurrection (Season 2)", date: "2025", status: "Renewed", est: "Late 2026", score: "8.5", genreId: 80 },
-    { name: "The Pitt (Season 2)", date: "2025", status: "Renewed", est: "Early 2027", score: "9.1", genreId: 18 },
-    { name: "Slow Horses (Season 6)", date: "2022", status: "Renewed", est: "Late 2026", score: "8.9", genreId: 80 },
-    { name: "The Bear (Season 5)", date: "2022", status: "Renewed", est: "2027", score: "8.8", genreId: 18 },
-    { name: "ONE PIECE (Season 2)", date: "2023", status: "Renewed", est: "2027", score: "8.6", genreId: 10759 },
-    { name: "The Night Agent (Season 3)", date: "2023", status: "Renewed", est: "Early 2027", score: "7.8", genreId: 10759 },
-    { name: "VisionQuest", date: "2026", status: "Pending", est: "Mid 2027", score: "8.6", genreId: 10759 },
-    { name: "Time (Season 3)", date: "2021", status: "Renewed", est: "2027", score: "8.8", genreId: 18 },
-    { name: "The Terminal List (Season 2)", date: "2022", status: "Renewed", est: "2027", score: "7.9", genreId: 10759 },
-    { name: "Hacks (Season 5)", date: "2021", status: "Renewed", est: "2027", score: "8.7", genreId: 35 },
-    { name: "Industry (Season 4)", date: "2020", status: "Renewed", est: "2027", score: "8.5", genreId: 18 },
-    { name: "Rivals (Season 2)", date: "2024", status: "Renewed", est: "2027", score: "8.4", genreId: 18 },
-    { name: "Strange New Worlds (Season 4)", date: "2022", status: "Renewed", est: "2027", score: "8.3", genreId: 10765 },
-    { name: "Stick (Season 2)", date: "2025", status: "Renewed", est: "2027", score: "7.8", genreId: 35 },
-    { name: "Will Trent", date: "2023", status: "Renewed", est: "Early 2027", score: "7.8", genreId: 80 },
-    { name: "Grey's Anatomy", date: "2005", status: "Renewed", est: "Ongoing", score: "8.2", genreId: 18 },
-    { name: "Pride and Prejudice", date: "2026", status: "Limited Series", est: "Dec 2026", score: "8.3", genreId: 18 },
-    { name: "Harry Potter (Season 1)", date: "2026", status: "Renewed", est: "Dec 2026", score: "8.8", genreId: 10765 },
-    { name: "Ahsoka (Season 2)", date: "2023", status: "Renewed", est: "Jan 2027", score: "8.1", genreId: 10765 },
-    { name: "Silo (Season 3)", date: "2023", status: "Renewed", est: "2027", score: "8.4", genreId: 10765 },
-    { name: "Abbott Elementary (Season 5)", date: "2021", status: "Renewed", est: "Ongoing", score: "8.3", genreId: 35 },
-    { name: "The Gilded Age (Season 4)", date: "2022", status: "Renewed", est: "2027", score: "8.3", genreId: 18 },
-    { name: "Man on Fire", date: "2026", status: "Pending", est: "2027", score: "8.0", genreId: 10759 },
-    { name: "Crystal Lake", date: "2026", status: "Pending", est: "Mid 2027", score: "7.7", genreId: 80 },
-    { name: "Sugar (Season 2)", date: "2024", status: "Renewed", est: "2027", score: "7.9", genreId: 80 },
-    { name: "The Rainmaker (Season 2)", date: "2025", status: "Renewed", est: "2027", score: "7.8", genreId: 18 },
-    { name: "Love Is Blind (Season 11)", date: "2020", status: "Renewed", est: "2027", score: "7.2", genreId: 18 }
-  ];
-
-  function loadTop50() {
+  async function loadTop50() {
     const status = document.getElementById("syncStatus");
-    let dataset = fallbackTop50;
+    status.textContent = "Fetching live chart from TMDB...";
 
-    if (currentGenre !== 'all') {
-      dataset = fallbackTop50.filter(show => show.genreId === genreMap[currentGenre]);
+    try {
+      let url = `https://api.themoviedb.org/3/trending/tv/week?api_key=${TMDB_API_KEY}`;
+      if (currentGenre !== 'all') {
+        url = `https://api.themoviedb.org/3/discover/tv?api_key=${TMDB_API_KEY}&with_genres=${genreMap[currentGenre]}&sort_by=popularity.desc`;
+      }
+
+      const res = await fetch(url);
+      const data = await res.json();
+      let shows = data.results || [];
+
+      // Fetch page 2 to expand the list
+      if (data.total_pages > 1) {
+        const res2 = await fetch(`${url}&page=2`);
+        const data2 = await res2.json();
+        if (data2.results) shows = shows.concat(data2.results);
+      }
+
+      renderTop50Rows(shows);
+      status.textContent = `Showing ${shows.length} live trending shows`;
+    } catch (err) {
+      status.textContent = "Error loading live chart";
     }
-    renderTop50Rows(dataset);
-    status.textContent = `Showing ${dataset.length} shows`;
   }
 
   function switchGenre(genre, btn) {
@@ -490,18 +451,18 @@
     tbody.innerHTML = shows.map((show, index) => {
       const rank = index + 1;
       const topClass = rank <= 3 ? "rank-top3" : "";
-      let badgeClass = "badge-pending";
-      if (show.status.includes("Renewed") || show.status.includes("Active")) badgeClass = "badge-renewed";
-      if (show.status === "Cancelled" || show.status === "Final Season") badgeClass = "badge-cancelled";
+      const score = show.vote_average ? show.vote_average.toFixed(1) : "N/A";
+      const date = show.first_air_date || "—";
+      const popularity = Math.round(show.popularity || 0);
 
       return `
         <tr>
           <td class="rank-num ${topClass}">#${rank}</td>
-          <td><strong>${show.name}</strong></td>
-          <td>${show.date}</td>
-          <td><span class="badge ${badgeClass}">${show.status}</span></td>
-          <td>${show.est || "—"}</td>
-          <td><span class="score-pill">★ ${show.score}</span></td>
+          <td><strong>${show.name || show.original_name}</strong></td>
+          <td>${date}</td>
+          <td><span class="badge badge-renewed">● Active</span></td>
+          <td>🔥 ${popularity} pts</td>
+          <td><span class="score-pill">★ ${score}</span></td>
         </tr>
       `;
     }).join("");
