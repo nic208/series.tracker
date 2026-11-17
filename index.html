@@ -219,32 +219,15 @@
       background: rgba(56, 189, 248, 0.15); color: var(--accent); border: 1px solid rgba(56, 189, 248, 0.3);
       padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
     }
-	/* --- MOBILE RESPONSIVENESS FIXES --- */
+
+    /* --- MOBILE RESPONSIVENESS FIXES --- */
     @media (max-width: 600px) {
-      body {
-        padding: 1rem 0.5rem; /* Less padding on phone edges */
-      }
-      
-      h1 {
-        font-size: 1.35rem; /* Smaller header so it doesn't wrap awkwardly */
-      }
-
-      .lookup-input-group {
-        flex-direction: column; /* Stack search input and button vertically */
-      }
-
-      .btn-primary {
-        width: 100%; /* Make search button full-width for easy tapping */
-      }
-
-      .section-header {
-        padding: 1rem;
-      }
-
-      th, td {
-        padding: 0.7rem 0.75rem; /* Compact table cells for small screens */
-        font-size: 0.85rem;
-      }
+      body { padding: 1rem 0.5rem; }
+      h1 { font-size: 1.35rem; }
+      .lookup-input-group { flex-direction: column; }
+      .btn-primary { width: 100%; }
+      .section-header { padding: 1rem; }
+      th, td { padding: 0.7rem 0.75rem; font-size: 0.85rem; }
     }
   </style>
 </head>
@@ -296,8 +279,8 @@
             <th>Rank</th>
             <th>Series</th>
             <th>First Aired</th>
+            <th>Est. Release / Return</th>
             <th>Status</th>
-            <th>Popularity Score</th>
             <th>Rating</th>
           </tr>
         </thead>
@@ -433,7 +416,7 @@
     }
   }
 
-  // --- 3. LIVE TRENDING TOP CHART & GENRES ---
+  // --- 3. LIVE TRENDING TOP CHART & GENRES (WITH DEDICATED EST. RELEASE COLUMN) ---
   const genreMap = { all: null, drama: 18, scifi: 10765, action: 10759, comedy: 35, crime: 80 };
   let currentGenre = 'all';
 
@@ -449,17 +432,27 @@
 
       const res = await fetch(url);
       const data = await res.json();
-      let shows = data.results || [];
+      let basicShows = data.results || [];
 
-      // Fetch page 2 to expand the list
       if (data.total_pages > 1) {
         const res2 = await fetch(`${url}&page=2`);
         const data2 = await res2.json();
-        if (data2.results) shows = shows.concat(data2.results);
+        if (data2.results) basicShows = basicShows.concat(data2.results);
       }
 
-      renderTop50Rows(shows);
-      status.textContent = `Showing ${shows.length} live trending shows`;
+      status.textContent = "Syncing release details...";
+      const detailedShows = await Promise.all(basicShows.map(async (show) => {
+        try {
+          const detailRes = await fetch(`https://api.themoviedb.org/3/tv/${show.id}?api_key=${TMDB_API_KEY}`);
+          const details = await detailRes.json();
+          return { ...show, details };
+        } catch (e) {
+          return { ...show, details: null };
+        }
+      }));
+
+      renderTop50Rows(detailedShows);
+      status.textContent = `Showing ${detailedShows.length} live trending shows`;
     } catch (err) {
       status.textContent = "Error loading live chart";
     }
@@ -475,20 +468,74 @@
 
   function renderTop50Rows(shows) {
     const tbody = document.getElementById("trendingBody");
-    tbody.innerHTML = shows.map((show, index) => {
+    tbody.innerHTML = shows.map((item, index) => {
       const rank = index + 1;
       const topClass = rank <= 3 ? "rank-top3" : "";
+      const show = item;
+      const details = item.details;
+
       const score = show.vote_average ? show.vote_average.toFixed(1) : "N/A";
-      const date = show.first_air_date || "—";
-      const popularity = Math.round(show.popularity || 0);
+      const firstAired = show.first_air_date || "—";
+
+// Determine Estimated Return / New Season Date & Pending Check
+      let estRelease = "—";
+      let statusText = details ? details.status : "Active";
+      let badgeClass = "badge-renewed";
+
+      if (details) {
+        const totalSeasons = details.number_of_seasons || 1;
+        
+        // 1. Exact upcoming date is locked in
+        if (details.next_episode_to_air && details.next_episode_to_air.air_date) {
+          estRelease = details.next_episode_to_air.air_date;
+        } 
+        // 2. Officially Ended or Cancelled
+        else if (statusText === "Ended" || statusText === "Canceled") {
+          estRelease = "Completed";
+          badgeClass = "badge-cancelled";
+        } 
+        // 3. Miniseries
+        else if (details.type === "Miniseries") {
+          statusText = "Miniseries";
+          badgeClass = "badge-cancelled";
+          estRelease = "Completed";
+        }
+        // 4. BRAND NEW / SINGLE SEASON LIMO: If it only has 1 season and hasn't been officially greenlit yet
+        else if (totalSeasons === 1 && (statusText === "Returning Series" || statusText === "Active")) {
+          statusText = "Pending Renewal";
+          badgeClass = "badge-pending"; // Yellow badge
+          
+          if (details.last_air_date) {
+            const lastYear = parseInt(details.last_air_date.split("-")[0]);
+            estRelease = `Awaiting Word (${lastYear + 1}?)`;
+          } else {
+            estRelease = "Unconfirmed";
+          }
+        }
+        // 5. MULTI-SEASON SHOW OFFICIALLY RENEWED
+        else if (statusText === "Returning Series" && details.in_production === true) {
+          statusText = "Returning / Renewed";
+          badgeClass = "badge-renewed";
+          
+          if (details.last_air_date) {
+            const lastYear = parseInt(details.last_air_date.split("-")[0]);
+            estRelease = `Expected ${lastYear + 1}`;
+          } else {
+            estRelease = "In Production";
+          }
+        } 
+        else {
+          estRelease = "Ongoing";
+        }
+      }
 
       return `
         <tr>
           <td class="rank-num ${topClass}">#${rank}</td>
           <td><strong>${show.name || show.original_name}</strong></td>
-          <td>${date}</td>
-          <td><span class="badge badge-renewed">● Active</span></td>
-          <td>🔥 ${popularity} pts</td>
+          <td>${firstAired}</td>
+          <td><strong style="color: var(--accent);">${estRelease}</strong></td>
+          <td><span class="badge ${badgeClass}">● ${statusText}</span></td>
           <td><span class="score-pill">★ ${score}</span></td>
         </tr>
       `;
