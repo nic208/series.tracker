@@ -233,7 +233,7 @@
     <h2>🔍 Live Show Status Lookup</h2>
     <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Search any show to check its renewal status, release date, and rating.</p>
     <div class="lookup-input-group">
-      <input type="text" id="showSearchInput" class="lookup-input" placeholder="e.g. Big Mistakes, Adults, Heated Rivalry..." onkeyup="if(event.key==='Enter') searchAnyShow()" />
+      <input type="text" id="showSearchInput" class="lookup-input" placeholder="e.g. Shameless, Big Mistakes, Adults..." onkeyup="if(event.key==='Enter') searchAnyShow()" />
       <button class="btn-primary" onclick="searchAnyShow()">Check Show</button>
     </div>
     <div id="lookupResult"></div>
@@ -314,8 +314,8 @@
 </div>
 
 <script>
-  // TMDB API requirement bypassed – using local offline tracker & smart search fallback
-  const TMDB_API_KEY = "";
+  // Your live TMDB v3 API key
+  const TMDB_API_KEY = "06e2d709858ebfc42c6f723b16ba62df";
 
   // --- 1. NEW RELEASES ---
   const newReleasesData = [
@@ -385,27 +385,37 @@
   function closeModal(e) { if(e.target.id === 'releaseModal') closeModalDirect(); }
   function closeModalDirect() { document.getElementById("releaseModal").style.display = "none"; }
 
-  // --- 2. SHOW SEARCH TOOL ---
-  function searchAnyShow() {
+  // --- 2. LIVE GLOBAL TMDB SEARCH ---
+  async function searchAnyShow() {
     const query = document.getElementById("showSearchInput").value.trim();
     const resultDiv = document.getElementById("lookupResult");
     if(!query) { resultDiv.innerHTML = "Please type a show name."; return; }
 
-    const localMatch = fallbackTop50.find(s => s.name.toLowerCase().includes(query.toLowerCase()));
+    resultDiv.innerHTML = "Searching global database...";
+    try {
+      const searchRes = await fetch(`https://api.themoviedb.org/3/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
+      const searchData = await searchRes.json();
 
-    if (localMatch) {
-      resultDiv.innerHTML = `
-        <div style="background: rgba(56, 189, 248, 0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--accent);">
-          <strong>${localMatch.name}</strong> (First Aired: ${localMatch.date})<br>
-          Status: <strong>${localMatch.status}</strong> | Est. Release: <strong>${localMatch.est}</strong> | Rating: ★ ${localMatch.score}
-        </div>`;
-    } else {
-      const searchUrl = `https://www.google.com/search?q=${encodeURIComponent(query + " tv show release date renewal status")}`;
-      resultDiv.innerHTML = `
-        <div style="background: rgba(245, 158, 11, 0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--yellow);">
-          <strong>"${query}"</strong> is not in your quick offline tracker.<br>
-          <a href="${searchUrl}" target="_blank" style="color: var(--accent); font-weight: bold; text-decoration: underline;">👉 Click here to check "${query}" status on Google</a>
-        </div>`;
+      if (searchData.results && searchData.results.length > 0) {
+        const showId = searchData.results[0].id;
+        const detailRes = await fetch(`https://api.themoviedb.org/3/tv/${showId}?api_key=${TMDB_API_KEY}`);
+        const details = await detailRes.json();
+
+        const statusText = details.status || "Unknown";
+        const nextEp = details.next_episode_to_air ? details.next_episode_to_air.air_date : "TBD / Not announced";
+        const score = details.vote_average ? details.vote_average.toFixed(1) : "N/A";
+
+        resultDiv.innerHTML = `
+          <div style="background: rgba(56, 189, 248, 0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--accent);">
+            <strong>${details.name}</strong> (${details.number_of_seasons} Seasons • First Aired: ${details.first_air_date || 'N/A'})<br>
+            🔄 Production Status: <strong>${statusText}</strong> | 📅 Next Episode / Release: <strong>${nextEp}</strong> | ⭐ Score: <strong>★ ${score}</strong><br>
+            <em style="font-size: 0.85rem; color: var(--text-muted); display: block; margin-top: 4px;">${details.overview || ''}</em>
+          </div>`;
+      } else {
+        resultDiv.innerHTML = `No shows found matching "${query}".`;
+      }
+    } catch (err) {
+      resultDiv.innerHTML = "Error connecting to the global database.";
     }
   }
 
@@ -579,7 +589,6 @@
     summary.textContent = `${onlineCount}/${streamingSites.length} reachable • Checked at ${time}`;
   }
 
-  // Initialize safely when the page is ready
   document.addEventListener("DOMContentLoaded", () => {
     renderNewReleases();
     loadTop50();
